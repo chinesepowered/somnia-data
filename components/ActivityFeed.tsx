@@ -28,9 +28,9 @@ export function ActivityFeed() {
             className="text-center py-12"
           >
             <div className="text-6xl mb-4">⏳</div>
-            <p className="text-gray-400">Connecting to Somnia Data Streams...</p>
+            <p className="text-gray-400">Connecting to Somnia blockchain...</p>
             <p className="text-sm text-gray-500 mt-2">
-              Waiting for live transactions from the network
+              Waiting for new blocks with transactions
             </p>
           </motion.div>
         )}

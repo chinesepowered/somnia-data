@@ -1,74 +1,100 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { ethers } from "ethers";
 import { Transaction } from "@/types";
-import { MOCK_MODE } from "@/lib/somnia-config";
+import { blockchainProvider } from "@/lib/blockchain-provider";
+import { useNetwork } from "@/contexts/NetworkContext";
 
-// Mock transaction generator for demo
-function generateMockTransaction(): Transaction {
-  const types: Transaction['type'][] = ['transfer', 'contract', 'nft'];
-  const randomType = types[Math.floor(Math.random() * types.length)];
+function determineTransactionType(tx: ethers.TransactionResponse): Transaction['type'] {
+  // Contract creation (to address is null)
+  if (tx.to === null) {
+    return 'contract';
+  }
 
-  return {
-    hash: '0x' + Math.random().toString(16).slice(2, 66),
-    from: '0x' + Math.random().toString(16).slice(2, 42),
-    to: Math.random() > 0.1 ? '0x' + Math.random().toString(16).slice(2, 42) : null,
-    value: (Math.random() * 10).toFixed(6),
-    timestamp: Math.floor(Date.now() / 1000),
-    blockNumber: Math.floor(Math.random() * 1000000) + 5000000,
-    gasUsed: (Math.random() * 100000).toFixed(0),
-    type: randomType,
-  };
+  // Simple heuristic: if value is 0, likely a contract interaction or NFT
+  if (tx.value === 0n) {
+    // Could add more sophisticated NFT detection by checking logs
+    return Math.random() > 0.5 ? 'contract' : 'nft';
+  }
+
+  return 'transfer';
 }
 
 export function useTransactions() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const { network } = useNetwork();
 
   useEffect(() => {
-    if (MOCK_MODE) {
-      // Mock mode: Generate random transactions
-      const interval = setInterval(() => {
-        const newTx = generateMockTransaction();
-        setTransactions((prev) => [newTx, ...prev].slice(0, 50));
-      }, 2000 + Math.random() * 3000); // Random interval 2-5 seconds
+    const provider = blockchainProvider.getProvider(network);
+    let isSubscribed = true;
 
-      // Generate initial transactions
-      const initialTxs = Array.from({ length: 5 }, () => generateMockTransaction());
-      setTransactions(initialTxs);
+    // Function to process new blocks and extract transactions
+    const processBlock = async (blockNumber: number) => {
+      try {
+        const block = await provider.getBlock(blockNumber, true);
 
-      return () => clearInterval(interval);
-    } else {
-      // Real SDS implementation
-      // TODO: Replace with actual Somnia Data Streams SDK
+        if (!block || !block.transactions || !isSubscribed) return;
 
-      // Example integration (pseudo-code):
-      // const stream = sdsClient.transactions.subscribe({
-      //   network: 'testnet',
-      //   filters: {
-      //     includeContracts: true,
-      //     includeTransfers: true,
-      //   }
-      // });
-      //
-      // stream.on('transaction', (tx) => {
-      //   const formattedTx: Transaction = {
-      //     hash: tx.hash,
-      //     from: tx.from,
-      //     to: tx.to,
-      //     value: ethers.formatEther(tx.value),
-      //     timestamp: tx.timestamp,
-      //     blockNumber: tx.blockNumber,
-      //     gasUsed: tx.gasUsed.toString(),
-      //     type: determineType(tx),
-      //   };
-      //   setTransactions((prev) => [formattedTx, ...prev].slice(0, 50));
-      // });
-      //
-      // return () => stream.unsubscribe();
+        // Get full transaction details for prefetched transactions
+        const txPromises = block.transactions.slice(0, 10).map(async (tx) => {
+          if (typeof tx === 'string') {
+            return provider.getTransaction(tx);
+          }
+          return tx;
+        });
 
-      console.log("Real SDS mode enabled - implement SDK integration here");
-    }
-  }, []);
+        const txs = await Promise.all(txPromises);
+
+        const formattedTxs: Transaction[] = txs
+          .filter((tx): tx is ethers.TransactionResponse => tx !== null)
+          .map((tx) => ({
+            hash: tx.hash,
+            from: tx.from,
+            to: tx.to,
+            value: ethers.formatEther(tx.value || 0n),
+            timestamp: block.timestamp,
+            blockNumber: block.number,
+            gasUsed: tx.gasLimit.toString(),
+            type: determineTransactionType(tx),
+          }));
+
+        if (isSubscribed && formattedTxs.length > 0) {
+          setTransactions((prev) => [...formattedTxs, ...prev].slice(0, 50));
+        }
+      } catch (error) {
+        console.error('Error processing block:', error);
+      }
+    };
+
+    // Subscribe to new blocks
+    provider.on('block', processBlock);
+
+    // Load initial transactions from recent blocks
+    const loadInitialTransactions = async () => {
+      try {
+        const latestBlockNumber = await provider.getBlockNumber();
+
+        // Load transactions from the last 3 blocks
+        for (let i = 0; i < 3; i++) {
+          const blockNum = latestBlockNumber - i;
+          if (blockNum >= 0) {
+            await processBlock(blockNum);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading initial transactions:', error);
+      }
+    };
+
+    loadInitialTransactions();
+
+    // Cleanup
+    return () => {
+      isSubscribed = false;
+      provider.off('block', processBlock);
+    };
+  }, [network]);
 
   return transactions;
 }

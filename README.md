@@ -13,6 +13,8 @@ Blockchain data has traditionally been **slow, stale, and hard to access**. Deve
 
 **The blockchain moves in real-time. Why shouldn't our applications?**
 
+> **Note:** This visualizer connects directly to Somnia blockchain (both testnet and mainnet) to display real transaction data as it happens. No wallet or tokens needed - it's completely read-only!
+
 ---
 
 ## 💡 The Solution
@@ -21,11 +23,12 @@ Blockchain data has traditionally been **slow, stale, and hard to access**. Deve
 
 ### What Makes It Special
 
-🔴 **LIVE Data** - Transactions appear the moment they hit the blockchain
-⚡ **Zero Latency** - No polling intervals, no refresh delays
-📊 **Real-time Stats** - TPS, active addresses, and network metrics update instantly
+🔴 **LIVE Data** - Real transactions from Somnia blockchain appear instantly
+⚡ **Zero Latency** - Subscribed to block events, no polling delays
+📊 **Real-time Stats** - TPS, active addresses, and network metrics from actual blockchain
 🎨 **Beautiful Visualization** - Each transaction type gets unique visual treatment
-🎯 **Practical Showcase** - Demonstrates real-world SDS use cases
+🌐 **Dual Network** - Switch between testnet and mainnet on the fly
+🎯 **No Wallet Needed** - Read-only, works immediately without any setup
 
 ---
 
@@ -84,29 +87,36 @@ Built with modern web technologies optimized for real-time data:
 - **Framer Motion** for smooth, buttery animations
 - **Tailwind CSS** for responsive, beautiful design
 - **TypeScript** for type-safe development
-- **Somnia Data Streams SDK** for instant blockchain data
+- **Ethers.js** for blockchain connectivity
 
 ### Architecture
 
 ```
-┌─────────────────┐
-│  Somnia Testnet │
-└────────┬────────┘
-         │
-    ┌────▼────┐
-    │   SDS   │ ◄── Zero-latency data streaming
-    └────┬────┘
-         │
-┌────────▼─────────┐
-│  Somnia Pulse UI │ ◄── Instant reactivity
-└──────────────────┘
+┌──────────────────────────────────┐
+│     Somnia Testnet/Mainnet       │
+│        (Live Blockchain)         │
+└────────────┬─────────────────────┘
+             │
+    ┌────────▼─────────┐
+    │  Ethers.js RPC   │ ◄── Block event subscriptions
+    └────────┬─────────┘
+             │
+┌────────────▼─────────────────────┐
+│   Reactive Hooks (useStats,      │
+│   useTransactions)               │ ◄── Real-time data processing
+└────────────┬─────────────────────┘
+             │
+┌────────────▼─────────────────────┐
+│     Somnia Pulse UI              │ ◄── Instant updates
+└──────────────────────────────────┘
 ```
 
-The app uses reactive hooks that subscribe to SDS streams:
-- `useTransactions()` - Live transaction feed
-- `useStats()` - Real-time network statistics
+The app uses reactive hooks that subscribe to blockchain events:
+- `useTransactions()` - Processes new blocks for transaction feed
+- `useStats()` - Calculates real-time network statistics
+- Network switching - Change between testnet/mainnet instantly
 
-Each component reacts instantly to new data—no polling loops, no stale cache.
+Each component reacts to new blocks as they're mined—no polling, just pure event-driven updates.
 
 ---
 

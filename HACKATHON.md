@@ -23,8 +23,8 @@ This project proves that blockchain UX can match Web2 expectations when you have
 - **Frontend**: Next.js 14 (App Router), React 18, TypeScript
 - **Styling**: Tailwind CSS
 - **Animations**: Framer Motion
-- **Data**: Somnia Data Streams (mock mode for demo, ready for real integration)
-- **Blockchain**: Somnia Testnet
+- **Blockchain**: Ethers.js connecting to live Somnia Testnet/Mainnet
+- **Data**: Real-time blockchain events via RPC subscriptions
 
 ## Key Features
 
@@ -114,16 +114,16 @@ vercel
 
 See `DEPLOYMENT.md` for detailed instructions.
 
-## Integration Path
+## Network Support
 
-The project is designed to easily switch from mock data to real SDS:
+The project connects to live Somnia blockchain:
 
-1. Install actual SDS SDK when available
-2. Update `lib/somnia-config.ts` with SDK client
-3. Set `NEXT_PUBLIC_MOCK_MODE=false`
-4. Update hooks to use real streams
+1. **Read-Only**: No wallet or tokens needed
+2. **Dual Network**: Switch between testnet and mainnet in UI
+3. **Real-Time**: Subscribes to actual blockchain events
+4. **Zero Setup**: Works immediately, no configuration
 
-See `INTEGRATION.md` for complete guide.
+See `NETWORK-SETUP.md` for network configuration details.
 
 ## Project Structure
 

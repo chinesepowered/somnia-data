@@ -9,7 +9,9 @@ pnpm dev
 
 Open http://localhost:3000
 
-That's it! The app runs in mock mode by default.
+That's it! The app connects to live Somnia testnet automatically.
+
+**No wallet needed** - It's read-only, so it works instantly!
 
 ## Deploy to Vercel (2 minutes)
 
@@ -31,7 +33,7 @@ Follow prompts. Done!
 
 ### Technical Docs
 - **SETUP.md** - Detailed setup instructions
-- **INTEGRATION.md** - How to connect real SDS SDK
+- **INTEGRATION.md** - How blockchain integration works
 - **DEPLOYMENT.md** - Deploy to various platforms
 
 ### Code Structure
@@ -75,17 +77,19 @@ Edit `hooks/useStats.ts`:
 const interval = setInterval(updateStats, 3000); // Change interval
 ```
 
-## Mock vs Real Mode
+## Network Switching
 
-**Mock Mode (Default)**
-- Generates fake transactions for demo
-- Works without testnet
-- Perfect for development and demos
+The app supports both Somnia testnet and mainnet:
 
-**Real Mode**
-- Set `NEXT_PUBLIC_MOCK_MODE=false`
-- Connect actual SDS SDK
-- See `INTEGRATION.md` for details
+**Testnet (Default)**
+- Active and producing blocks
+- Free to use, no tokens needed
+- Perfect for demos and development
+
+**Mainnet**
+- Switch using the network toggle in the UI
+- Also read-only, no wallet needed
+- Update RPC URL in config when mainnet launches
 
 ## Troubleshooting
 

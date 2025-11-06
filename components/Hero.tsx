@@ -1,6 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { NetworkBadge } from "./NetworkBadge";
+import { NetworkSwitcher } from "./NetworkSwitcher";
 
 export function Hero() {
   return (
@@ -45,13 +47,9 @@ export function Hero() {
             powered by Somnia Data Streams revolutionary instant data infrastructure.
           </p>
 
-          <div className="mt-8 flex items-center justify-center gap-4">
-            <div className="px-4 py-2 bg-somnia-purple/20 rounded-full border border-somnia-purple/50">
-              <span className="text-sm font-medium">🔴 LIVE</span>
-            </div>
-            <div className="px-4 py-2 bg-somnia-blue/20 rounded-full border border-somnia-blue/50">
-              <span className="text-sm font-medium">Somnia Testnet</span>
-            </div>
+          <div className="mt-8 flex flex-col items-center gap-4">
+            <NetworkBadge />
+            <NetworkSwitcher />
           </div>
         </motion.div>
       </div>

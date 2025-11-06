@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { ethers } from "ethers";
 import { Stats } from "@/types";
-import { MOCK_MODE } from "@/lib/somnia-config";
+import { blockchainProvider } from "@/lib/blockchain-provider";
+import { useNetwork } from "@/contexts/NetworkContext";
 
 const initialStats: Stats = {
   tps: 0,
@@ -14,52 +16,93 @@ const initialStats: Stats = {
 
 export function useStats() {
   const [stats, setStats] = useState<Stats>(initialStats);
+  const { network } = useNetwork();
+  const [blockTimes, setBlockTimes] = useState<number[]>([]);
 
   useEffect(() => {
-    if (MOCK_MODE) {
-      // Mock mode: Generate realistic-looking stats
-      const updateStats = () => {
-        setStats((prev) => ({
-          tps: Math.random() * 50 + 10, // 10-60 TPS
-          totalTransactions: prev.totalTransactions + Math.floor(Math.random() * 5) + 1,
-          activeAddresses: Math.floor(Math.random() * 1000) + 500,
-          avgGasPrice: (Math.random() * 20 + 10).toFixed(2),
-          latestBlock: prev.latestBlock > 0 ? prev.latestBlock + 1 : 5000000 + Math.floor(Math.random() * 10000),
-        }));
-      };
+    const provider = blockchainProvider.getProvider(network);
+    let isSubscribed = true;
+    let totalTxCount = 0;
+    const uniqueAddresses = new Set<string>();
 
-      // Initial stats
-      updateStats();
+    const updateStats = async (blockNumber: number) => {
+      try {
+        const [block, feeData] = await Promise.all([
+          provider.getBlock(blockNumber, true),
+          provider.getFeeData(),
+        ]);
 
-      // Update every 3 seconds
-      const interval = setInterval(updateStats, 3000);
+        if (!block || !isSubscribed) return;
 
-      return () => clearInterval(interval);
-    } else {
-      // Real SDS implementation
-      // TODO: Replace with actual Somnia Data Streams SDK
+        // Track block timestamps for TPS calculation
+        const now = Date.now();
+        setBlockTimes((prev) => {
+          const updated = [...prev, now];
+          // Keep only last 10 block times
+          return updated.slice(-10);
+        });
 
-      // Example integration (pseudo-code):
-      // const statsStream = sdsClient.stats.subscribe({
-      //   metrics: ['tps', 'totalTransactions', 'activeAddresses', 'gasPrice', 'latestBlock'],
-      //   updateInterval: 3000, // Update every 3 seconds
-      // });
-      //
-      // statsStream.on('update', (data) => {
-      //   setStats({
-      //     tps: data.transactionsPerSecond,
-      //     totalTransactions: data.totalTransactions,
-      //     activeAddresses: data.uniqueAddresses,
-      //     avgGasPrice: ethers.formatUnits(data.averageGasPrice, 'gwei'),
-      //     latestBlock: data.latestBlockNumber,
-      //   });
-      // });
-      //
-      // return () => statsStream.unsubscribe();
+        // Count transactions in this block
+        const txCount = block.transactions?.length || 0;
+        totalTxCount += txCount;
 
-      console.log("Real SDS mode enabled - implement SDK integration here");
-    }
-  }, []);
+        // Track unique addresses (from prefetched transactions)
+        if (block.prefetchedTransactions) {
+          for (const tx of block.prefetchedTransactions.slice(0, 20)) {
+            uniqueAddresses.add(tx.from);
+            if (tx.to) uniqueAddresses.add(tx.to);
+          }
+        }
+
+        // Calculate TPS based on recent block times
+        let tps = 0;
+        setBlockTimes((times) => {
+          if (times.length >= 2) {
+            const timeDiff = (times[times.length - 1] - times[0]) / 1000; // seconds
+            if (timeDiff > 0) {
+              tps = totalTxCount / timeDiff;
+            }
+          }
+          return times;
+        });
+
+        if (isSubscribed) {
+          setStats({
+            tps,
+            totalTransactions: totalTxCount,
+            activeAddresses: uniqueAddresses.size,
+            avgGasPrice: feeData.gasPrice
+              ? ethers.formatUnits(feeData.gasPrice, 'gwei')
+              : "0",
+            latestBlock: block.number,
+          });
+        }
+      } catch (error) {
+        console.error('Error updating stats:', error);
+      }
+    };
+
+    // Subscribe to new blocks
+    provider.on('block', updateStats);
+
+    // Load initial stats
+    const loadInitialStats = async () => {
+      try {
+        const latestBlockNumber = await provider.getBlockNumber();
+        await updateStats(latestBlockNumber);
+      } catch (error) {
+        console.error('Error loading initial stats:', error);
+      }
+    };
+
+    loadInitialStats();
+
+    // Cleanup
+    return () => {
+      isSubscribed = false;
+      provider.off('block', updateStats);
+    };
+  }, [network]);
 
   return stats;
 }

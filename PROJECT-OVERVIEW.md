@@ -154,27 +154,24 @@ Purple:  NFTs       🎨
 
 ## 🔌 Integration Points
 
-### Current: Mock Mode
+### Real Blockchain Connection
 ```typescript
-MOCK_MODE = true
+Network Selection (Testnet/Mainnet)
 ↓
-Generate fake transactions
+Ethers.js RPC Provider
 ↓
-Simulate realistic behavior
+Subscribe to block events
 ↓
-Perfect for demos
+Process real transactions
+↓
+Display in real-time UI
 ```
 
-### Future: Real SDS
-```typescript
-MOCK_MODE = false
-↓
-Connect to SDS SDK
-↓
-Subscribe to real streams
-↓
-Production ready
-```
+### No Setup Required
+- ✅ No wallet needed
+- ✅ No tokens required
+- ✅ No API keys
+- ✅ Works instantly
 
 ## ✅ Quality Checklist
 

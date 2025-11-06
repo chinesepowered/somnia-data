@@ -2,21 +2,26 @@
 
 import { motion } from "framer-motion";
 import { Transaction } from "@/types";
+import { useNetwork } from "@/contexts/NetworkContext";
+import { NETWORKS } from "@/lib/somnia-config";
 
 interface TransactionCardProps {
   transaction: Transaction;
 }
 
 export function TransactionCard({ transaction }: TransactionCardProps) {
+  const { network } = useNetwork();
+  const config = NETWORKS[network];
+
   const formatAddress = (address: string) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
   const formatValue = (value: string) => {
     const eth = parseFloat(value);
-    if (eth === 0) return "0 STT";
-    if (eth < 0.0001) return "<0.0001 STT";
-    return `${eth.toFixed(4)} STT`;
+    if (eth === 0) return `0 ${config.currency}`;
+    if (eth < 0.0001) return `<0.0001 ${config.currency}`;
+    return `${eth.toFixed(4)} ${config.currency}`;
   };
 
   const getTypeIcon = (type: Transaction['type']) => {

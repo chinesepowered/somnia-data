@@ -32,9 +32,9 @@ Vercel is the easiest way to deploy Next.js apps.
 
 ### Environment Variables
 
-In Vercel dashboard, add:
-- `NEXT_PUBLIC_MOCK_MODE` - Set to `false` for real data
-- `NEXT_PUBLIC_SOMNIA_API_KEY` - If required by SDS
+No environment variables needed! The app works out of the box.
+
+If you want to add analytics or custom features later, you can add them in Vercel dashboard.
 
 ## Netlify
 

@@ -1,217 +1,241 @@
-# Somnia Data Streams Integration Guide
+# Real-Time Blockchain Integration Guide
 
-This guide explains how to integrate the real Somnia Data Streams SDK to replace the mock data.
+This document explains how Somnia Pulse connects to live blockchain data.
 
-## Current Status
+## How It Works
 
-The app currently runs in **mock mode** with simulated transactions and statistics. This demonstrates the UI/UX without requiring testnet access.
+Somnia Pulse uses **ethers.js** to connect directly to Somnia blockchain via RPC. It subscribes to new block events and processes real transactions as they're mined.
 
-## Integration Steps
+### No Wallet Required
 
-### 1. Install SDS SDK
+Since we're only **reading** blockchain data (not sending transactions), you don't need:
+- ❌ A wallet
+- ❌ Private keys
+- ❌ Testnet or mainnet tokens (STT)
+- ❌ Any configuration or API keys
 
-Once the official Somnia Data Streams SDK is available:
+Just run the app and it connects automatically!
 
-```bash
-pnpm add @somnia-network/data-streams
-# Or whatever the actual package name is
-```
+## Network Configuration
 
-### 2. Configure Environment
-
-Update `.env.local`:
-
-```bash
-NEXT_PUBLIC_MOCK_MODE=false
-NEXT_PUBLIC_SOMNIA_RPC=https://dream-rpc.somnia.network
-# Add any required API keys
-```
-
-### 3. Update `lib/somnia-config.ts`
-
-Initialize the SDS client:
+The app supports both Somnia testnet and mainnet. Configuration is in `lib/somnia-config.ts`:
 
 ```typescript
-import { SomniaDataStreams } from '@somnia-network/data-streams';
+export const NETWORKS: Record<NetworkType, NetworkConfig> = {
+  testnet: {
+    name: 'Somnia Testnet',
+    rpcUrl: 'https://dream-rpc.somnia.network',
+    chainId: 50311,
+    explorerUrl: 'https://somnia-devnet.socialscan.io',
+    currency: 'STT',
+  },
+  mainnet: {
+    name: 'Somnia Mainnet',
+    rpcUrl: 'https://rpc.somnia.network', // Update with actual mainnet RPC
+    chainId: 0, // Update with actual mainnet chain ID
+    explorerUrl: 'https://explorer.somnia.network', // Update with actual explorer
+    currency: 'STT',
+  },
+};
+```
 
-export const sdsClient = new SomniaDataStreams({
-  network: 'testnet',
-  rpcUrl: process.env.NEXT_PUBLIC_SOMNIA_RPC,
-  // Add any required configuration
+### Updating Mainnet Configuration
+
+When Somnia mainnet launches, update these values:
+1. `rpcUrl` - Official mainnet RPC endpoint
+2. `chainId` - Mainnet chain ID
+3. `explorerUrl` - Mainnet block explorer URL
+
+## Data Flow
+
+### 1. Block Subscription
+
+```typescript
+// In hooks/useTransactions.ts and hooks/useStats.ts
+const provider = blockchainProvider.getProvider(network);
+
+// Subscribe to new blocks
+provider.on('block', async (blockNumber) => {
+  const block = await provider.getBlock(blockNumber, true);
+  // Process transactions...
 });
-
-export const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK_MODE === 'true';
 ```
 
-### 4. Update `hooks/useTransactions.ts`
+### 2. Transaction Processing
 
-Replace the mock implementation with real SDS:
+For each new block:
+1. Fetch full block data with transactions
+2. Extract first 10 transactions (for performance)
+3. Determine transaction type (transfer, contract, NFT)
+4. Format and display in UI
 
 ```typescript
-import { sdsClient, MOCK_MODE } from '@/lib/somnia-config';
-import { ethers } from 'ethers';
+const formattedTx: Transaction = {
+  hash: tx.hash,
+  from: tx.from,
+  to: tx.to,
+  value: ethers.formatEther(tx.value || 0n),
+  timestamp: block.timestamp,
+  blockNumber: block.number,
+  gasUsed: tx.gasLimit.toString(),
+  type: determineTransactionType(tx),
+};
+```
 
-export function useTransactions() {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+### 3. Statistics Calculation
 
-  useEffect(() => {
-    if (MOCK_MODE) {
-      // Keep existing mock implementation
-      return;
-    }
+Real-time stats are calculated from live data:
+- **TPS**: Transactions per second based on last 10 blocks
+- **Total Transactions**: Cumulative count from observed blocks
+- **Active Addresses**: Unique addresses seen in recent blocks
+- **Gas Price**: From `provider.getFeeData()`
+- **Latest Block**: Current block number
 
-    // Real SDS implementation
-    const stream = sdsClient.transactions.subscribe({
-      network: 'testnet',
-      filters: {
-        includeContracts: true,
-        includeTransfers: true,
-      }
-    });
+## Network Switching
 
-    stream.on('transaction', (tx) => {
-      const formattedTx: Transaction = {
-        hash: tx.hash,
-        from: tx.from,
-        to: tx.to,
-        value: ethers.formatEther(tx.value || '0'),
-        timestamp: tx.timestamp,
-        blockNumber: tx.blockNumber,
-        gasUsed: tx.gasUsed.toString(),
-        type: determineTransactionType(tx),
-      };
+Users can switch between testnet and mainnet using the UI toggle. This:
 
-      setTransactions((prev) => [formattedTx, ...prev].slice(0, 50));
-    });
+1. Updates the `NetworkContext`
+2. Triggers `useEffect` in hooks (network dependency)
+3. Unsubscribes from old provider
+4. Subscribes to new provider
+5. Loads fresh data from new network
 
-    return () => stream.unsubscribe();
-  }, []);
+The switch happens instantly with no page reload.
 
-  return transactions;
+## Performance Optimizations
+
+### Limiting Transaction Display
+
+Only first 10 transactions per block are processed to avoid overwhelming the UI:
+
+```typescript
+block.transactions.slice(0, 10)
+```
+
+### Maintaining Maximum List Size
+
+Transaction feed is capped at 50 items:
+
+```typescript
+setTransactions((prev) => [...formattedTxs, ...prev].slice(0, 50));
+```
+
+### Efficient Block Time Tracking
+
+Only last 10 block timestamps are kept for TPS calculation:
+
+```typescript
+return updated.slice(-10);
+```
+
+## Error Handling
+
+All blockchain calls are wrapped in try-catch blocks:
+
+```typescript
+try {
+  const block = await provider.getBlock(blockNumber, true);
+  // Process block...
+} catch (error) {
+  console.error('Error processing block:', error);
 }
+```
 
-function determineTransactionType(tx: any): Transaction['type'] {
-  if (tx.to === null) return 'contract';
-  // Add logic to detect NFT transfers
-  if (tx.logs?.some(log => log.topics[0] === NFT_TRANSFER_SIGNATURE)) {
-    return 'nft';
+Errors are logged to console but don't crash the app. The UI continues to function and will recover when the next block arrives.
+
+## Adding Custom RPC Endpoints
+
+To use a custom RPC endpoint (e.g., for development or private nodes):
+
+1. Update `lib/somnia-config.ts`:
+```typescript
+testnet: {
+  rpcUrl: 'https://your-custom-rpc-endpoint.com',
+  // ...
+}
+```
+
+2. No other changes needed - the app will use your endpoint automatically
+
+## Future Enhancements
+
+### WebSocket Support
+
+For even faster updates, you could add WebSocket RPC:
+
+```typescript
+export const NETWORKS: Record<NetworkType, NetworkConfig> = {
+  testnet: {
+    wsUrl: 'wss://dream-rpc.somnia.network',
+    // ...
   }
-  return 'transfer';
+};
+
+// In blockchain-provider.ts
+const provider = new ethers.WebSocketProvider(config.wsUrl);
+```
+
+### Transaction Filtering
+
+Add filters to show only specific transaction types:
+
+```typescript
+const processBlock = async (blockNumber, filters) => {
+  // Filter by value, address, contract, etc.
+};
+```
+
+### Historical Data Loading
+
+Load transactions from older blocks on initial load:
+
+```typescript
+for (let i = 0; i < 100; i++) {
+  const blockNum = latestBlockNumber - i;
+  await processBlock(blockNum);
 }
 ```
 
-### 5. Update `hooks/useStats.ts`
+## Troubleshooting
 
-Replace mock stats with real SDS metrics:
+### No transactions appearing
 
-```typescript
-import { sdsClient, MOCK_MODE } from '@/lib/somnia-config';
+**Possible causes:**
+1. Network is not producing blocks
+2. RPC endpoint is down or slow
+3. All blocks are empty (no transactions)
 
-export function useStats() {
-  const [stats, setStats] = useState<Stats>(initialStats);
+**Solutions:**
+- Check network status in explorer
+- Verify RPC URL is correct
+- Try switching networks
+- Check browser console for errors
 
-  useEffect(() => {
-    if (MOCK_MODE) {
-      // Keep existing mock implementation
-      return;
-    }
+### Stats not updating
 
-    // Real SDS implementation
-    const statsStream = sdsClient.stats.subscribe({
-      metrics: ['tps', 'totalTransactions', 'activeAddresses', 'gasPrice', 'latestBlock'],
-      updateInterval: 3000,
-    });
+**Check:**
+- Network connection is stable
+- No console errors
+- Latest block number is incrementing
 
-    statsStream.on('update', (data) => {
-      setStats({
-        tps: data.transactionsPerSecond,
-        totalTransactions: data.totalTransactions,
-        activeAddresses: data.uniqueAddresses,
-        avgGasPrice: ethers.formatUnits(data.averageGasPrice, 'gwei'),
-        latestBlock: data.latestBlockNumber,
-      });
-    });
+### High memory usage
 
-    return () => statsStream.unsubscribe();
-  }, []);
+If the app runs for a long time, clear old data:
+- Reduce transaction list size
+- Limit block time history
+- Reset stats periodically
 
-  return stats;
-}
-```
+## Code References
 
-## SDS Features to Explore
-
-Once integrated, consider adding these advanced features:
-
-### Filtered Streams
-```typescript
-// Only show high-value transactions
-const stream = sdsClient.transactions.subscribe({
-  filters: {
-    minValue: ethers.parseEther('1.0'),
-  }
-});
-```
-
-### Event Subscriptions
-```typescript
-// Subscribe to specific contract events
-const eventStream = sdsClient.events.subscribe({
-  address: CONTRACT_ADDRESS,
-  topics: [EVENT_SIGNATURE],
-});
-```
-
-### Block Subscriptions
-```typescript
-// React to new blocks
-const blockStream = sdsClient.blocks.subscribe();
-blockStream.on('block', (block) => {
-  // Update UI with new block data
-});
-```
-
-### Historical Data
-```typescript
-// Fetch past transactions for initial state
-const historicalTxs = await sdsClient.transactions.getRange({
-  fromBlock: latestBlock - 100,
-  toBlock: latestBlock,
-});
-```
-
-## Testing
-
-1. Start with mock mode enabled
-2. Verify UI works correctly with mock data
-3. Switch to real SDS mode
-4. Compare behavior - should feel identical
-5. Monitor console for any SDS errors
-
-## Performance Tips
-
-- **Limit displayed items**: The UI shows max 50 transactions
-- **Debounce updates**: Stats update every 3 seconds, not on every transaction
-- **Cleanup subscriptions**: Always unsubscribe in cleanup functions
-- **Error handling**: Wrap SDS calls in try-catch blocks
-
-## Common Issues
-
-### "Module not found: @somnia-network/data-streams"
-The SDK package name might be different. Check the official docs for the correct import.
-
-### Subscription never receives data
-- Verify you're connected to testnet
-- Check network configuration in `somnia-config.ts`
-- Ensure testnet is active and producing blocks
-
-### Too many updates causing lag
-- Increase the debounce interval
-- Reduce the number of visible transactions
-- Use React.memo() on expensive components
+- **Network Config**: `lib/somnia-config.ts:13`
+- **Blockchain Provider**: `lib/blockchain-provider.ts:6`
+- **Network Context**: `contexts/NetworkContext.tsx:10`
+- **Transaction Hook**: `hooks/useTransactions.ts:24`
+- **Stats Hook**: `hooks/useStats.ts:17`
 
 ## Resources
 
-- [SDS Documentation](https://docs.somnia.network/somnia-data-streams)
-- [SDS Quickstart](https://docs.somnia.network/somnia-data-streams/getting-started/quickstart)
-- [Somnia Testnet Explorer](https://somnia-devnet.socialscan.io)
+- [Ethers.js Docs](https://docs.ethers.org/)
+- [Somnia Docs](https://docs.somnia.network/)
+- [Somnia Explorer](https://somnia-devnet.socialscan.io)

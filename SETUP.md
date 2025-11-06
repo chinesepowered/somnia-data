@@ -32,19 +32,14 @@ pnpm build
 pnpm start
 ```
 
-## Environment Configuration
+## How It Works
 
-Copy `.env.example` to `.env.local` and configure:
+The app connects directly to Somnia blockchain via RPC and subscribes to live block events:
 
-```bash
-cp .env.example .env.local
-```
-
-By default, the app runs in **mock mode** with simulated data. This lets you see the UI and animations without connecting to the actual blockchain.
-
-To use real Somnia Data Streams:
-1. Set `NEXT_PUBLIC_MOCK_MODE=false` in `.env.local`
-2. Follow the integration guide in `INTEGRATION.md`
+- **Read-Only**: No wallet or tokens needed
+- **Dual Network**: Switch between testnet and mainnet in the UI
+- **Real-Time**: Subscribes to new blocks using ethers.js
+- **Zero Setup**: Works out of the box, no configuration needed
 
 ## Project Structure
 
