@@ -12,11 +12,6 @@ class BlockchainProvider {
         chainId: config.chainId,
         name: config.name,
       });
-
-      // Configure polling after construction
-      (provider as any)._pollingInterval = 4000;
-      provider.polling = true;
-
       this.providers.set(network, provider);
     }
     return this.providers.get(network)!;

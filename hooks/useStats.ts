@@ -24,6 +24,7 @@ export function useStats() {
     let isSubscribed = true;
     let totalTxCount = 0;
     const uniqueAddresses = new Set<string>();
+    let lastBlockNumber = 0;
 
     const updateStats = async (blockNumber: number) => {
       try {
@@ -34,6 +35,9 @@ export function useStats() {
         ]);
 
         if (!block || !isSubscribed) return;
+
+        // Update last seen block number
+        lastBlockNumber = blockNumber;
 
         // Track block timestamps for TPS calculation
         const now = Date.now();
@@ -83,10 +87,6 @@ export function useStats() {
       }
     };
 
-    // Subscribe to new blocks
-    console.log('📡 Subscribing to block events for stats...');
-    provider.on('block', updateStats);
-
     // Load initial stats
     const loadInitialStats = async () => {
       try {
@@ -99,10 +99,24 @@ export function useStats() {
 
     loadInitialStats();
 
+    // Poll for new blocks every 4 seconds
+    const pollInterval = setInterval(async () => {
+      if (!isSubscribed) return;
+      try {
+        const latestBlockNumber = await provider.getBlockNumber();
+        console.log('🔍 Polling - Current:', latestBlockNumber, 'Last:', lastBlockNumber);
+        if (latestBlockNumber > lastBlockNumber) {
+          await updateStats(latestBlockNumber);
+        }
+      } catch (error) {
+        console.error('Error polling for new blocks:', error);
+      }
+    }, 4000);
+
     // Cleanup
     return () => {
       isSubscribed = false;
-      provider.off('block', updateStats);
+      clearInterval(pollInterval);
     };
   }, [network]);
 

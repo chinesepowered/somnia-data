@@ -28,6 +28,7 @@ export function useTransactions() {
   useEffect(() => {
     const provider = blockchainProvider.getProvider(network);
     let isSubscribed = true;
+    let lastBlockNumber = 0;
 
     // Function to process new blocks and extract transactions
     const processBlock = async (blockNumber: number) => {
@@ -36,6 +37,9 @@ export function useTransactions() {
         const block = await provider.getBlock(blockNumber, true);
 
         if (!block || !block.transactions || !isSubscribed) return;
+
+        // Update last seen block number
+        lastBlockNumber = blockNumber;
 
         // Get full transaction details for prefetched transactions
         const txPromises = block.transactions.slice(0, 10).map(async (tx) => {
@@ -68,17 +72,13 @@ export function useTransactions() {
       }
     };
 
-    // Subscribe to new blocks
-    console.log('📡 Subscribing to block events for transactions...');
-    provider.on('block', processBlock);
-
     // Load initial transactions from recent blocks
     const loadInitialTransactions = async () => {
       try {
         const latestBlockNumber = await provider.getBlockNumber();
 
-        // Load transactions from the last 20 blocks (oldest to newest)
-        for (let i = 19; i >= 0; i--) {
+        // Load transactions from the last 10 blocks (oldest to newest)
+        for (let i = 9; i >= 0; i--) {
           const blockNum = latestBlockNumber - i;
           if (blockNum >= 0) {
             await processBlock(blockNum);
@@ -91,10 +91,24 @@ export function useTransactions() {
 
     loadInitialTransactions();
 
+    // Poll for new blocks every 4 seconds
+    const pollInterval = setInterval(async () => {
+      if (!isSubscribed) return;
+      try {
+        const latestBlockNumber = await provider.getBlockNumber();
+        console.log('🔍 Polling - Current:', latestBlockNumber, 'Last:', lastBlockNumber);
+        if (latestBlockNumber > lastBlockNumber) {
+          await processBlock(latestBlockNumber);
+        }
+      } catch (error) {
+        console.error('Error polling for new blocks:', error);
+      }
+    }, 4000);
+
     // Cleanup
     return () => {
       isSubscribed = false;
-      provider.off('block', processBlock);
+      clearInterval(pollInterval);
     };
   }, [network]);
 
