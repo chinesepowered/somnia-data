@@ -14,7 +14,7 @@ export const NETWORKS: Record<NetworkType, NetworkConfig> = {
   testnet: {
     name: 'Somnia Testnet',
     rpcUrl: 'https://dream-rpc.somnia.network',
-    chainId: 50311,
+    chainId: 50312,
     explorerUrl: 'https://somnia-devnet.socialscan.io',
     currency: 'STT',
   },

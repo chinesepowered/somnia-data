@@ -1,5 +1,6 @@
 "use client";
 
+import { forwardRef } from "react";
 import { motion } from "framer-motion";
 import { Transaction } from "@/types";
 import { useNetwork } from "@/contexts/NetworkContext";
@@ -9,7 +10,8 @@ interface TransactionCardProps {
   transaction: Transaction;
 }
 
-export function TransactionCard({ transaction }: TransactionCardProps) {
+export const TransactionCard = forwardRef<HTMLDivElement, TransactionCardProps>(
+  function TransactionCard({ transaction }, ref) {
   const { network } = useNetwork();
   const config = NETWORKS[network];
 
@@ -44,6 +46,7 @@ export function TransactionCard({ transaction }: TransactionCardProps) {
 
   return (
     <motion.div
+      ref={ref}
       layout
       initial={{ opacity: 0, x: -50, scale: 0.95 }}
       animate={{ opacity: 1, x: 0, scale: 1 }}
@@ -97,4 +100,4 @@ export function TransactionCard({ transaction }: TransactionCardProps) {
       </div>
     </motion.div>
   );
-}
+});

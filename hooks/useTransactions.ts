@@ -32,6 +32,7 @@ export function useTransactions() {
     // Function to process new blocks and extract transactions
     const processBlock = async (blockNumber: number) => {
       try {
+        console.log('💳 Processing block for transactions:', blockNumber);
         const block = await provider.getBlock(blockNumber, true);
 
         if (!block || !block.transactions || !isSubscribed) return;
@@ -68,6 +69,7 @@ export function useTransactions() {
     };
 
     // Subscribe to new blocks
+    console.log('📡 Subscribing to block events for transactions...');
     provider.on('block', processBlock);
 
     // Load initial transactions from recent blocks
@@ -75,8 +77,8 @@ export function useTransactions() {
       try {
         const latestBlockNumber = await provider.getBlockNumber();
 
-        // Load transactions from the last 3 blocks
-        for (let i = 0; i < 3; i++) {
+        // Load transactions from the last 20 blocks (oldest to newest)
+        for (let i = 19; i >= 0; i--) {
           const blockNum = latestBlockNumber - i;
           if (blockNum >= 0) {
             await processBlock(blockNum);

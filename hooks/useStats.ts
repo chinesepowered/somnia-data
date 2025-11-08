@@ -27,6 +27,7 @@ export function useStats() {
 
     const updateStats = async (blockNumber: number) => {
       try {
+        console.log('📊 New block detected:', blockNumber);
         const [block, feeData] = await Promise.all([
           provider.getBlock(blockNumber, true),
           provider.getFeeData(),
@@ -83,6 +84,7 @@ export function useStats() {
     };
 
     // Subscribe to new blocks
+    console.log('📡 Subscribing to block events for stats...');
     provider.on('block', updateStats);
 
     // Load initial stats
